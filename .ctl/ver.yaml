@@ -1,0 +1,39 @@
+# Cargo.lock carries the version too, so a bump leaves it stale. `after`
+# regenerates it and `stage` puts it on the Version PR commit.
+prepare:
+  after: [cargo, update, --workspace]
+  stage: [Cargo.lock]
+
+# publish = false in Cargo.toml: the release is a tag, a GitHub Release, and
+# its tarball, with no registry upload.
+packages:
+  - name: fanctl
+    path: Cargo.toml
+    publisher: none
+
+# Hand-written version spellings outside Cargo.toml. Each is named once and
+# listed by the file that carries it; too few or too many stop the release.
+patterns:
+  skill:
+    match: "version: {version}"
+    occurrences: once
+
+pins:
+  - file: skills/fanctl/SKILL.md
+    package: fanctl
+    patterns: [skill]
+
+# One key per binary; the name is the job, the tarball, and the platform.
+# A static musl build, so it runs on any distribution, NixOS included.
+# linux-x64 is a built-in record that overrides only the triple. The boards
+# fanctl has a table for are x86_64 desktop boards, so no arm64 build ships.
+assets:
+  linux-x64:
+    triple: x86_64-unknown-linux-musl
+
+# Maintainers and Apps a changelog never credits.
+changelog:
+  internal_authors:
+    - any-victor
+    - "github-actions[bot]"
+    - "vsh-changeset-version[bot]"

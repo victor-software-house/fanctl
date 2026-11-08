@@ -1,0 +1,106 @@
+[package]
+name = "fanctl"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.99.1"
+description = "Declarative fan curves for the NCT6687D-R on MSI boards, through the nct6687 hwmon driver"
+license = "MIT"
+repository = "https://github.com/victor-software-house/fanctl"
+readme = "README.md"
+keywords = ["fan", "hwmon", "nct6687", "msi", "cli"]
+categories = ["command-line-utilities", "hardware-support"]
+# Releases ship prebuilt binaries from GitHub Releases only.
+publish = false
+autotests = false
+
+[[test]]
+name = "it"
+path = "tests/it/main.rs"
+
+# Line tables keep backtraces readable at a fraction of full debug info.
+[profile.dev]
+debug = "line-tables-only"
+
+[dependencies]
+anyhow = "1.0.104"
+clap = { version = "4.6.7", features = ["derive", "env"] }
+ctl-core = { version = "=0.6.28", default-features = false, features = [
+  "app",
+  "input",
+] }
+garde = { version = "0.23.0", default-features = false, features = ["derive"] }
+serde = { version = "1.0.229", features = ["derive"] }
+thiserror = "2.0.21"
+
+[dev-dependencies]
+ctl-core = { version = "=0.6.28", default-features = false, features = [
+  "surface",
+] }
+# The version ctl-core's surface feature builds its environment with.
+minijinja = { version = "=2.24.0", features = ["serde"] }
+serde_json = "1.0.154"
+tempfile = "3.27.0"
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "deny"
+missing_debug_implementations = "deny"
+unreachable_pub = "deny"
+rust_2018_idioms = { level = "deny", priority = -1 }
+
+[lints.rustdoc]
+broken_intra_doc_links = "deny"
+private_intra_doc_links = "deny"
+invalid_html_tags = "deny"
+invalid_codeblock_attributes = "deny"
+# Allow-by-default, so a -D warnings rustdoc build never fires it: an unbalanced
+# backtick renders the rest of the paragraph as code.
+unescaped_backticks = "deny"
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+cargo = { level = "deny", priority = -1 }
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"
+unwrap_used = "deny"
+expect_used = "deny"
+disallowed_macros = "deny"
+wildcard_enum_match_arm = "deny"
+match_wildcard_for_single_variants = "deny"
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"
+# A function that returns Result reports failure through it, not a panic.
+panic_in_result_fn = "deny"
+# map_err(|_| ...) drops the cause; wrap it as a source instead. A site whose
+# error carries nothing carries #[expect(clippy::map_err_ignore, reason = "...")].
+map_err_ignore = "deny"
+# format! or push_str, not + on a String.
+string_add = "deny"
+# From and TryFrom, not as, which can silently truncate or wrap. A site that
+# truly needs as carries #[expect(clippy::as_conversions, reason = "...")].
+as_conversions = "deny"
+# Rc<str> and Rc<[T]>, not Rc<String> or Rc<Vec<T>>.
+rc_buffer = "deny"
+# Rc::clone(&x), so a cheap pointer clone reads apart from a deep copy.
+clone_on_ref_ptr = "deny"
+# foo.rs beside foo/, never foo/mod.rs. The Rust Book calls the first the
+# idiomatic path and mod.rs the older style, whose many same-named files blur
+# together in an editor (ch07-05, "Alternate File Paths").
+mod_module_files = "deny"
+# Duplicate versions come from transitive dependencies the crate does not
+# control; cargo-deny reports them (`bans.multiple-versions`).
+multiple_crate_versions = "allow"
+
+# The smallest binary that keeps its speed (TPL-031). Against opt-level 3 with
+# thin LTO, a ctl CLI came out 35% smaller and 4% slower. opt-level "z" takes
+# another 25% off but runs a ledger parse 51% slower: a repository whose run
+# time does not matter sets it here. Cargo ignores the profiles of a
+# dependency, so a library's consumers see none of this.
+[profile.release]
+opt-level = "s"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"

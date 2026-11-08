@@ -1,0 +1,18 @@
+{%- from "ctl/version.md.jinja" import version_line -%}
+---
+name: fanctl
+description: >-
+  Operate fanctl, the declarative fan curve CLI for the Nuvoton NCT6687D-R on
+  MSI boards under Linux: validate a fan curve config, apply it through the
+  nct6687 hwmon driver with read-back verification, and print the curves the
+  driver holds as a config. Use when the user mentions fanctl, fan curves on
+  an MSI board, CPU_FAN1, PUMP_SYS1 or SYS_FAN headers, nct6687 or
+  pwmN_auto_point attributes.
+license: MIT
+{{ version_line(version) }}
+compatibility: Requires a fanctl binary on Linux, the nct6687 driver with pwmN_auto_pointM attributes, and root to write them.
+---
+
+# fanctl
+
+{% include "fanctl/contract.md.jinja" %}

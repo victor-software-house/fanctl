@@ -1,0 +1,34 @@
+board: MS-7E70
+fans:
+  CPU_FAN1:
+    - { temp: 55, duty: 40 }
+    - { temp: 59, duty: 49.6 }
+    - { temp: 63, duty: 59.2 }
+    - { temp: 68, duty: 71.2 }
+    - { temp: 72, duty: 80.8 }
+    - { temp: 76, duty: 90.4 }
+    - { temp: 80, duty: 100 }
+  PUMP_SYS1:
+    - { temp: 55, duty: 100 }
+    - { temp: 59, duty: 100 }
+    - { temp: 63, duty: 100 }
+    - { temp: 68, duty: 100 }
+    - { temp: 72, duty: 100 }
+    - { temp: 76, duty: 100 }
+    - { temp: 80, duty: 100 }
+  SYS_FAN1:
+    - { temp: 55, duty: 60 }
+    - { temp: 59, duty: 66.4 }
+    - { temp: 63, duty: 72.8 }
+    - { temp: 68, duty: 80.8 }
+    - { temp: 72, duty: 87.2 }
+    - { temp: 76, duty: 93.6 }
+    - { temp: 80, duty: 100 }
+  SYS_FAN2:
+    - { temp: 55, duty: 60 }
+    - { temp: 59, duty: 66.4 }
+    - { temp: 63, duty: 72.8 }
+    - { temp: 68, duty: 80.8 }
+    - { temp: 72, duty: 87.2 }
+    - { temp: 76, duty: 93.6 }
+    - { temp: 80, duty: 100 }

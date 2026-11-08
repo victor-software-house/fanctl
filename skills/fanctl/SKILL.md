@@ -1,0 +1,83 @@
+---
+name: fanctl
+description: >-
+  Operate fanctl, the declarative fan curve CLI for the Nuvoton NCT6687D-R on
+  MSI boards under Linux: validate a fan curve config, apply it through the
+  nct6687 hwmon driver with read-back verification, and print the curves the
+  driver holds as a config. Use when the user mentions fanctl, fan curves on
+  an MSI board, CPU_FAN1, PUMP_SYS1 or SYS_FAN headers, nct6687 or
+  pwmN_auto_point attributes.
+license: MIT
+version: 0.0.0
+compatibility: Requires a fanctl binary on Linux, the nct6687 driver with pwmN_auto_pointM attributes, and root to write them.
+---
+
+# fanctl
+
+`fanctl` writes declared fan curves into the Nuvoton NCT6687D-R of an MSI board through the `nct6687` hwmon driver, on Linux.
+The chip runs the curves itself; fanctl leaves no process behind.
+It finds the driver's device as the one `/sys/class/hwmon/hwmonN` whose `name` reads `nct6687`; the number is never fixed.
+
+## Commands
+
+| Command | Aliases | Purpose |
+|:--|:--|:--|
+| `check` | — | Validate a config without touching the hardware |
+| `apply` | — | Write every curve in a config, then read every point back |
+| `show` | — | Print the curves the driver holds now, as a config |
+| `instructions` | — | Print the operator contract for this version |
+
+## Config
+
+`apply` and `check` take the config file as their argument; it is YAML whatever its extension.
+
+```yaml
+board: MS-7E70
+fans:
+  CPU_FAN1:
+    - { temp: 55, duty: 40 }
+    - { temp: 59, duty: 49.6 }
+    - { temp: 63, duty: 59.2 }
+    - { temp: 68, duty: 71.2 }
+    - { temp: 72, duty: 80.8 }
+    - { temp: 76, duty: 90.4 }
+    - { temp: 80, duty: 100 }
+```
+
+- `board` is the board model. The only one known is `MS-7E70` (MSI PRO X870E-P WIFI).
+- `fans` maps a board header to its curve. On the MS-7E70 the headers are `CPU_FAN1` (pwm1), `PUMP_SYS1` (pwm2) and `SYS_FAN1` to `SYS_FAN6` (pwm3 to pwm8).
+  A header the board does not have is refused. A header the file does not name keeps the curve it has.
+- Each curve has exactly 7 points. `temp` is whole degrees C, 0 to 127; `duty` is percent, 0 to 100, with at most one decimal.
+  Neither may fall from one point to the next; equal neighbours are allowed.
+- The chip interpolates between the points against the CPU temperature.
+  A duty maps to the driver's 0-255 step nearest to it.
+
+## Apply
+
+- `apply` refuses the whole config, before any write, when it does not validate, when the machine's board is not the config's `board`, or when the driver already holds a falling curve for a configured fan.
+- The driver checks each point write alone and refuses one that leaves the curve falling, so fanctl writes the values that rise first, from point 7 down, then the rest from point 1 up.
+  Every intermediate curve then stays non-decreasing.
+- Every point is written, even one that already holds its value: the driver writes back after resume only the curves written since it loaded.
+- A refused write stops the apply at that point and names the fan, the attribute, the value and the error the driver returned; points written before it stay written.
+  `EBUSY` means the channel is under manual control; `EINVAL` means the driver refused the value.
+- After writing, fanctl reads every point back and fails, naming each fan and point that differs, with the value written and the value read.
+
+## Show
+
+`show` prints the curves the driver holds now, as a config that `apply` takes back unchanged.
+A duty prints with at most one decimal, which maps to the same 0-255 step.
+A header the driver exposes no curve for is left out.
+
+## Environment
+
+Every long option reads `FANCTL_<LONG>` when the flag is absent: `FANCTL_SYSFS`, `FANCTL_FORMAT`.
+A flag wins over its variable; an empty variable counts as unset.
+`--sysfs` (default `/sys`) is where the hwmon class and `class/dmi/id/board_name` are read.
+
+## Output
+
+Human output by default; `--format json` prints the result as one JSON value with no colour codes.
+
+## Permissions
+
+`show` and `check` need no privileges. `apply` writes sysfs attributes the driver creates for root only: run it as root, for example from a boot service.
