@@ -1,0 +1,66 @@
+board: MS-7E70
+fans:
+  CPU_FAN1:
+    - { temp: 20, duty: 19.6 }
+    - { temp: 40, duty: 34.9 }
+    - { temp: 50, duty: 47.1 }
+    - { temp: 60, duty: 58.8 }
+    - { temp: 70, duty: 70.6 }
+    - { temp: 85, duty: 82.4 }
+    - { temp: 100, duty: 100 }
+  PUMP_SYS1:
+    - { temp: 20, duty: 100 }
+    - { temp: 40, duty: 100 }
+    - { temp: 50, duty: 100 }
+    - { temp: 60, duty: 100 }
+    - { temp: 70, duty: 100 }
+    - { temp: 85, duty: 100 }
+    - { temp: 100, duty: 100 }
+  SYS_FAN1:
+    - { temp: 20, duty: 49.8 }
+    - { temp: 40, duty: 54.9 }
+    - { temp: 50, duty: 62.7 }
+    - { temp: 60, duty: 70.6 }
+    - { temp: 70, duty: 78.4 }
+    - { temp: 85, duty: 90.2 }
+    - { temp: 100, duty: 100 }
+  SYS_FAN2:
+    - { temp: 20, duty: 49.8 }
+    - { temp: 40, duty: 54.9 }
+    - { temp: 50, duty: 62.7 }
+    - { temp: 60, duty: 70.6 }
+    - { temp: 70, duty: 78.4 }
+    - { temp: 85, duty: 90.2 }
+    - { temp: 100, duty: 100 }
+  SYS_FAN3:
+    - { temp: 20, duty: 49.8 }
+    - { temp: 40, duty: 54.9 }
+    - { temp: 50, duty: 62.7 }
+    - { temp: 60, duty: 70.6 }
+    - { temp: 70, duty: 78.4 }
+    - { temp: 85, duty: 90.2 }
+    - { temp: 100, duty: 100 }
+  SYS_FAN4:
+    - { temp: 20, duty: 49.8 }
+    - { temp: 40, duty: 54.9 }
+    - { temp: 50, duty: 62.7 }
+    - { temp: 60, duty: 70.6 }
+    - { temp: 70, duty: 78.4 }
+    - { temp: 85, duty: 90.2 }
+    - { temp: 100, duty: 100 }
+  SYS_FAN5:
+    - { temp: 20, duty: 49.8 }
+    - { temp: 40, duty: 54.9 }
+    - { temp: 50, duty: 62.7 }
+    - { temp: 60, duty: 70.6 }
+    - { temp: 70, duty: 78.4 }
+    - { temp: 85, duty: 90.2 }
+    - { temp: 100, duty: 100 }
+  SYS_FAN6:
+    - { temp: 20, duty: 49.8 }
+    - { temp: 40, duty: 54.9 }
+    - { temp: 50, duty: 62.7 }
+    - { temp: 60, duty: 70.6 }
+    - { temp: 70, duty: 78.4 }
+    - { temp: 85, duty: 90.2 }
+    - { temp: 100, duty: 100 }

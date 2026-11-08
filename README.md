@@ -18,7 +18,30 @@ Status: in development; no release yet.
 
 - `fanctl check <config>` validates a config without touching the hardware.
 - `fanctl apply <config>` writes every point of every configured curve, then reads all of them back and fails on any mismatch.
-- `fanctl show` prints the curves the driver reports now, in the config's own format.
+- `fanctl show` prints the curves the driver holds now, in the config's own format.
+
+## Config
+
+```yaml
+board: MS-7E70
+fans:
+  CPU_FAN1:
+    - { temp: 55, duty: 40 }
+    - { temp: 59, duty: 49.6 }
+    - { temp: 63, duty: 59.2 }
+    - { temp: 68, duty: 71.2 }
+    - { temp: 72, duty: 80.8 }
+    - { temp: 76, duty: 90.4 }
+    - { temp: 80, duty: 100 }
+```
+
+Each fan takes exactly 7 points: `temp` in whole degrees C (0 to 127) and `duty` in percent (0 to 100, one decimal at most).
+Neither may fall from one point to the next.
+A header the file does not name keeps its curve.
+
+## Permissions
+
+`show` and `check` run as any user. `apply` writes attributes the driver creates for root only, so it runs as root, for example from a boot service.
 
 ## License
 

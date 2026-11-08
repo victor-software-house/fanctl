@@ -1,0 +1,2 @@
+# OpenSpec reads the project context and the per-artifact rules from here.
+schema: spec-driven
