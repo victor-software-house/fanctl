@@ -1,6 +1,6 @@
 [package]
 name = "fanctl"
-version = "0.0.0"
+version = "0.0.1"
 edition = "2024"
 rust-version = "1.99.1"
 description = "Declarative fan curves for the NCT6687D-R on MSI boards, through the nct6687 hwmon driver"

@@ -8,7 +8,7 @@ description: >-
   an MSI board, CPU_FAN1, PUMP_SYS1 or SYS_FAN headers, nct6687 or
   pwmN_auto_point attributes.
 license: MIT
-version: 0.0.0
+version: 0.0.1
 compatibility: Requires a fanctl binary on Linux, the nct6687 driver with pwmN_auto_pointM attributes, and root to write them.
 ---
 
