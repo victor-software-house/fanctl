@@ -1,6 +1,8 @@
 //! The write cycle against a model of the driver, which refuses each write
 //! the driver refuses.
 
+use std::io;
+
 use fanctl::apply::{ApplyError, Mismatch, apply, show};
 use fanctl::board::Board;
 use fanctl::config::{self, Config};
@@ -159,4 +161,38 @@ fn a_header_without_attributes_stops_the_apply_before_any_write() {
     assert!(driver.writes.borrow().is_empty());
     let shown = show(&driver, Board::Ms7e70).unwrap();
     assert!(!shown.fans.contains_key("PUMP_SYS1"));
+}
+
+/// A device whose reads fail once any write has landed.
+struct LosesReadsAfterWriting(Driver);
+
+impl Attributes for LosesReadsAfterWriting {
+    fn read(&self, name: &str) -> io::Result<String> {
+        if self.0.writes.borrow().is_empty() {
+            self.0.read(name)
+        } else {
+            Err(io::Error::other("the device went away"))
+        }
+    }
+
+    fn write(&self, name: &str, value: &str) -> io::Result<()> {
+        self.0.write(name, value)
+    }
+}
+
+#[test]
+fn a_read_back_that_fails_says_the_curves_were_written() {
+    let device = LosesReadsAfterWriting(Driver::ms_7e70());
+    let error = apply(&device, &workstation()).unwrap_err();
+    assert!(matches!(error, ApplyError::ReadBack(_)), "{error}");
+    assert_eq!(
+        device.0.writes.borrow().len(),
+        4 * 14,
+        "every point is written"
+    );
+    assert_eq!(
+        error.to_string(),
+        "CPU_FAN1 (pwm1): reading pwm1_auto_point1_temp: the device went away; the curves \
+         were written, but reading them back failed"
+    );
 }

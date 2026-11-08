@@ -46,9 +46,12 @@ pub fn fans(config: &Config) -> Vec<Fan> {
 /// Why an apply stopped.
 #[derive(Debug, Error)]
 pub enum ApplyError {
-    /// A curve could not be read; nothing was written.
+    /// A curve could not be read before the writes; nothing was written.
     #[error("{0}; nothing was written")]
-    Read(#[from] ReadError),
+    Read(ReadError),
+    /// A curve could not be read back after the writes.
+    #[error("{0}; the curves were written, but reading them back failed")]
+    ReadBack(ReadError),
     /// The driver holds a falling curve, so it would refuse every write;
     /// nothing was written.
     #[error(
@@ -140,13 +143,15 @@ fn reason(error: &io::Error) -> String {
 /// # Errors
 ///
 /// [`ApplyError`]: a curve that cannot be read or already falls stops the
-/// apply before any write; a refused write stops it at that write; points
-/// that read back otherwise are listed together.
+/// apply before any write; a refused write stops it at that write; a curve
+/// that cannot be read back stops it after every write; points that read
+/// back otherwise are listed together.
 pub fn apply(device: &dyn Attributes, config: &Config) -> Result<Vec<Fan>, ApplyError> {
     let fans = fans(config);
     let mut current = Vec::with_capacity(fans.len());
     for fan in &fans {
-        let registers = read_registers(device, fan.header, fan.channel)?;
+        let registers =
+            read_registers(device, fan.header, fan.channel).map_err(ApplyError::Read)?;
         if let Some(fall) = registers.fall() {
             return Err(ApplyError::CurrentFalls {
                 header: fan.header,
@@ -162,7 +167,7 @@ pub fn apply(device: &dyn Attributes, config: &Config) -> Result<Vec<Fan>, Apply
     }
     let mut mismatches = vec![];
     for fan in &fans {
-        let read = read_registers(device, fan.header, fan.channel)?;
+        let read = read_registers(device, fan.header, fan.channel).map_err(ApplyError::ReadBack)?;
         mismatches.extend(compare(fan, &fan.curve.registers(), &read));
     }
     if mismatches.is_empty() {

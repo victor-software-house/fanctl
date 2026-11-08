@@ -47,6 +47,7 @@ fans:
 - A refused write stops the apply at that point and names the fan, the attribute, the value and the error the driver returned; points written before it stay written.
   `EBUSY` means the channel is under manual control; `EINVAL` means the driver refused the value.
 - After writing, fanctl reads every point back and fails, naming each fan and point that differs, with the value written and the value read.
+- A point that cannot be read back fails the apply too, naming the fan and the attribute; the curves are written by then.
 
 ## Show
 
