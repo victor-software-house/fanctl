@@ -52,11 +52,16 @@ pub enum FindError {
         source: io::Error,
     },
     /// No hwmon device is named `nct6687`.
-    #[error("no hwmon device is named {DRIVER} under {0}; is the nct6687 module loaded?")]
+    #[error("no hwmon device is named {DRIVER} under {0}; the nct6687 module may not be loaded")]
     Missing(String),
     /// More than one is.
-    #[error("more than one hwmon device is named {DRIVER}: {0} and {1}")]
-    Ambiguous(String, String),
+    #[error("more than one hwmon device is named {DRIVER}: {first} and {second}")]
+    Ambiguous {
+        /// The first device directory, in path order.
+        first: String,
+        /// The second.
+        second: String,
+    },
     /// The board's DMI name could not be read.
     #[error("reading the board name from {path}: {source}")]
     Dmi {
@@ -103,10 +108,10 @@ impl Hwmon {
         match dirs.as_slice() {
             [] => Err(FindError::Missing(class.display().to_string())),
             [dir] => Ok(Self::new(dir.clone())),
-            [first, second, ..] => Err(FindError::Ambiguous(
-                first.display().to_string(),
-                second.display().to_string(),
-            )),
+            [first, second, ..] => Err(FindError::Ambiguous {
+                first: first.display().to_string(),
+                second: second.display().to_string(),
+            }),
         }
     }
 
@@ -215,7 +220,8 @@ pub fn read_registers(
             Sequence::Temp => &mut registers.temp,
             Sequence::Pwm => &mut registers.pwm,
         };
-        for (point, value) in values.iter_mut().enumerate() {
+        let slots = values.iter_mut().enumerate();
+        for (point, value) in slots {
             let name = attribute(channel, point, sequence);
             let problem = |problem: String| ReadError {
                 header: header.to_owned(),

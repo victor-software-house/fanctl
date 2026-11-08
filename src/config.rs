@@ -46,21 +46,18 @@ fn fans_fit(board: Board) -> impl FnOnce(&BTreeMap<String, Curve>, &()) -> garde
         if fans.is_empty() {
             return Err(garde::Error::new("name at least one fan"));
         }
-        let problems: Vec<String> = fans
-            .iter()
-            .filter_map(|(name, curve)| {
-                if board.header(name).is_none() {
-                    let known: Vec<&str> =
-                        board.headers().iter().map(|header| header.name).collect();
-                    Some(format!(
-                        "`{name}` is not a fan header on {board}; it has {}",
-                        known.join(", ")
-                    ))
-                } else {
-                    curve.fall().map(|fall| format!("`{name}`: {fall}"))
-                }
-            })
-            .collect();
+        let mut problems = vec![];
+        for (name, curve) in fans {
+            if board.header(name).is_none() {
+                let known: Vec<&str> = board.headers().iter().map(|header| header.name).collect();
+                problems.push(format!(
+                    "`{name}` is not a fan header on {board}; it has {}",
+                    known.join(", ")
+                ));
+            } else if let Some(fall) = curve.fall() {
+                problems.push(format!("`{name}`: {fall}"));
+            }
+        }
         if problems.is_empty() {
             Ok(())
         } else {

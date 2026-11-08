@@ -4,6 +4,7 @@
 use fanctl::apply::{ApplyError, Mismatch, apply, show};
 use fanctl::board::Board;
 use fanctl::config::{self, Config};
+use fanctl::curve::StoredPoint;
 use fanctl::hwmon::Attributes;
 
 use crate::common::driver::Driver;
@@ -38,7 +39,7 @@ fn the_workstation_config_applies_through_the_driver() {
     let first: Vec<&str> = writes
         .iter()
         .take(7)
-        .map(|(name, _)| name.as_str())
+        .map(|write| write.name.as_str())
         .collect();
     assert_eq!(
         first,
@@ -106,9 +107,9 @@ fn a_point_that_does_not_hold_is_named_with_both_values() {
         &[Mismatch {
             header: "SYS_FAN1",
             channel: Board::Ms7e70.header("SYS_FAN1").unwrap().channel,
-            point: 4,
-            wrote: (68, 206),
-            read: (68, 180),
+            point: 1,
+            wrote: StoredPoint { temp: 55, pwm: 153 },
+            read: StoredPoint { temp: 55, pwm: 127 },
         }]
     );
     assert!(

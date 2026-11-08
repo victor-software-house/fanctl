@@ -16,9 +16,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 use std::{fs, io};
 
+use fanctl::curve::{POINTS, Sequence};
 use fanctl::hwmon::Attributes;
-
-const POINTS: u8 = 7;
 
 /// The model's state: every attribute file's text, by name.
 #[derive(Debug, Default)]
@@ -29,25 +28,60 @@ pub(crate) struct Driver {
     /// Attributes that take a write and keep their value.
     pub(crate) stuck: BTreeSet<String>,
     /// Every write the model accepted, in order.
-    pub(crate) writes: RefCell<Vec<(String, String)>>,
+    pub(crate) writes: RefCell<Vec<Write>>,
 }
 
-/// One curve attribute: channel, point from 1, and whether it is a
-/// temperature.
-fn parse_name(name: &str) -> Option<(u8, u8, bool)> {
-    let rest = name.strip_prefix("pwm")?;
-    let (channel, rest) = rest.split_once("_auto_point")?;
-    let (point, kind) = rest.split_once('_')?;
-    let is_temp = match kind {
-        "temp" => true,
-        "pwm" => false,
-        _ => return None,
-    };
-    Some((channel.parse().ok()?, point.parse().ok()?, is_temp))
+/// One write the model accepted.
+#[derive(Debug)]
+pub(crate) struct Write {
+    /// The attribute file.
+    pub(crate) name: String,
+    /// The text written.
+    pub(crate) value: String,
+}
+
+/// One curve attribute, as the driver names it.
+struct CurveAttribute {
+    channel: u8,
+    /// From 0.
+    index: usize,
+    sequence: Sequence,
+}
+
+impl CurveAttribute {
+    /// `pwmN_auto_pointM_temp` or `_pwm`, or `None` for any other name.
+    fn parse(name: &str) -> Option<Self> {
+        let rest = name.strip_prefix("pwm")?;
+        let (channel, rest) = rest.split_once("_auto_point")?;
+        let (point, suffix) = rest.split_once('_')?;
+        let sequence = match suffix {
+            "temp" => Sequence::Temp,
+            "pwm" => Sequence::Pwm,
+            _ => return None,
+        };
+        let point: usize = point.parse().ok()?;
+        Some(Self {
+            channel: channel.parse().ok()?,
+            index: point.checked_sub(1).filter(|&index| index < POINTS)?,
+            sequence,
+        })
+    }
+}
+
+/// The sequence the driver checks beside the one written.
+const fn other(sequence: Sequence) -> Sequence {
+    match sequence {
+        Sequence::Temp => Sequence::Pwm,
+        Sequence::Pwm => Sequence::Temp,
+    }
 }
 
 fn invalid() -> io::Error {
     io::Error::from(io::ErrorKind::InvalidInput)
+}
+
+fn falls(values: &[i64]) -> bool {
+    values.windows(2).any(|pair| pair[1] < pair[0])
 }
 
 impl Driver {
@@ -96,11 +130,11 @@ impl Driver {
     }
 
     /// One sequence of a channel's curve, as stored values.
-    fn sequence(&self, channel: u8, is_temp: bool) -> io::Result<Vec<i64>> {
-        let kind = if is_temp { "temp" } else { "pwm" };
+    fn sequence(&self, channel: u8, sequence: Sequence) -> io::Result<Vec<i64>> {
+        let suffix = sequence.suffix();
         (1..=POINTS)
             .map(|point| {
-                self.read(&format!("pwm{channel}_auto_point{point}_{kind}"))?
+                self.read(&format!("pwm{channel}_auto_point{point}_{suffix}"))?
                     .parse::<i64>()
                     .ok()
                     .ok_or_else(invalid)
@@ -116,31 +150,27 @@ impl Attributes for Driver {
     }
 
     fn write(&self, name: &str, value: &str) -> io::Result<()> {
-        let (channel, point, is_temp) =
-            parse_name(name).ok_or_else(|| io::Error::from(io::ErrorKind::PermissionDenied))?;
+        let attribute = CurveAttribute::parse(name)
+            .ok_or_else(|| io::Error::from(io::ErrorKind::PermissionDenied))?;
         let value = value.trim().parse::<i64>().ok().ok_or_else(invalid)?;
-        let stored = if is_temp {
-            (value.clamp(0, 127_000) + 500) / 1000 * 1000
-        } else if (0..=255).contains(&value) {
-            value
-        } else {
-            return Err(invalid());
+        let stored = match attribute.sequence {
+            Sequence::Temp => (value.clamp(0, 127_000) + 500) / 1000 * 1000,
+            Sequence::Pwm if (0..=255).contains(&value) => value,
+            Sequence::Pwm => return Err(invalid()),
         };
-        if self.manual.contains(&channel) {
+        if self.manual.contains(&attribute.channel) {
             return Err(io::Error::from(io::ErrorKind::ResourceBusy));
         }
-        let mut sequence = self.sequence(channel, is_temp)?;
-        let index = usize::from(point - 1);
-        sequence[index] = stored;
-        let other = self.sequence(channel, !is_temp)?;
-        if sequence.windows(2).any(|pair| pair[1] < pair[0])
-            || other.windows(2).any(|pair| pair[1] < pair[0])
-        {
+        let mut written = self.sequence(attribute.channel, attribute.sequence)?;
+        written[attribute.index] = stored;
+        let beside = self.sequence(attribute.channel, other(attribute.sequence))?;
+        if falls(&written) || falls(&beside) {
             return Err(invalid());
         }
-        self.writes
-            .borrow_mut()
-            .push((name.to_owned(), value.to_string()));
+        self.writes.borrow_mut().push(Write {
+            name: name.to_owned(),
+            value: value.to_string(),
+        });
         if !self.stuck.contains(name) {
             self.set(name, &stored.to_string());
         }

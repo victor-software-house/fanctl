@@ -1,7 +1,8 @@
 //! The binary against copies of the fixture sysfs trees under `testdata/`.
 
-use std::fs;
 use std::process::Output;
+
+use ctl_core::fixture::Suite;
 
 use crate::common::{fanctl, sysfs_copy, testdata, testdata_text};
 
@@ -41,7 +42,8 @@ fn check_needs_no_hardware() {
 
 #[test]
 fn show_prints_the_driver_curves_as_a_config() {
-    let sysfs = sysfs_copy("ms-7e70");
+    let suite = Suite::new("cli");
+    let sysfs = sysfs_copy(&suite, "ms-7e70");
     let output = run(&["show"], sysfs.path());
     assert!(output.status.success(), "{output:?}");
     assert_eq!(
@@ -52,17 +54,14 @@ fn show_prints_the_driver_curves_as_a_config() {
 
 #[test]
 fn apply_writes_every_point_and_show_reads_them_back() {
-    let sysfs = sysfs_copy("ms-7e70");
+    let suite = Suite::new("cli");
+    let sysfs = sysfs_copy(&suite, "ms-7e70");
     let config = testdata("configs/workstation.yaml");
     let output = run(&["apply", &config.to_string_lossy()], sysfs.path());
     assert!(output.status.success(), "{}", text(&output));
-    let device = sysfs.path().join("class/hwmon/hwmon3");
+    assert_eq!(sysfs.read("class/hwmon/hwmon3/pwm1_auto_point2_pwm"), "126");
     assert_eq!(
-        fs::read_to_string(device.join("pwm1_auto_point2_pwm")).unwrap(),
-        "126"
-    );
-    assert_eq!(
-        fs::read_to_string(device.join("pwm4_auto_point1_temp")).unwrap(),
+        sysfs.read("class/hwmon/hwmon3/pwm4_auto_point1_temp"),
         "55000"
     );
     let shown = run(&["show"], sysfs.path());
@@ -72,15 +71,15 @@ fn apply_writes_every_point_and_show_reads_them_back() {
         shown.trim_end(),
         testdata_text("show/after-apply.yaml").trim_end()
     );
-    let pasted = sysfs.path().join("pasted.yaml");
-    fs::write(&pasted, &shown).unwrap();
+    let pasted = sysfs.file("pasted.yaml", &shown);
     let output = run(&["apply", &pasted.to_string_lossy()], sysfs.path());
     assert!(output.status.success(), "{}", text(&output));
 }
 
 #[test]
 fn apply_refuses_a_config_for_another_board() {
-    let sysfs = sysfs_copy("other-board");
+    let suite = Suite::new("cli");
+    let sysfs = sysfs_copy(&suite, "other-board");
     let config = testdata("configs/workstation.yaml");
     let output = run(&["apply", &config.to_string_lossy()], sysfs.path());
     assert!(!output.status.success());
@@ -93,7 +92,8 @@ fn apply_refuses_a_config_for_another_board() {
 
 #[test]
 fn the_device_is_found_by_name_and_only_once() {
-    let missing = sysfs_copy("no-device");
+    let suite = Suite::new("cli");
+    let missing = sysfs_copy(&suite, "no-device");
     let output = run(&["show"], missing.path());
     assert!(!output.status.success());
     assert!(
@@ -101,7 +101,7 @@ fn the_device_is_found_by_name_and_only_once() {
         "{}",
         text(&output)
     );
-    let two = sysfs_copy("two-devices");
+    let two = sysfs_copy(&suite, "two-devices");
     let output = run(&["show"], two.path());
     assert!(!output.status.success());
     assert!(

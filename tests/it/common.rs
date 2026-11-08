@@ -6,6 +6,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use ctl_core::fixture::{Root, Suite};
+
 /// The colour variables an agent shell sets, removed from every child so the
 /// suite passes there.
 const COLOR_VARIABLES: [&str; 5] = [
@@ -44,26 +46,28 @@ pub(crate) fn testdata_text(relative: &str) -> String {
     fs::read_to_string(&path).unwrap_or_else(|error| panic!("read {}: {error}", path.display()))
 }
 
-/// A writable copy of a fixture tree below `testdata/sysfs/`, removed when
-/// the returned directory drops.
-pub(crate) fn sysfs_copy(name: &str) -> tempfile::TempDir {
-    let dir = tempfile::tempdir().unwrap_or_else(|error| panic!("temporary directory: {error}"));
-    copy_tree(&testdata(&format!("sysfs/{name}")), dir.path());
-    dir
+/// A writable copy of a fixture tree below `testdata/sysfs/`, as one
+/// scenario of `suite`, removed when the returned root drops.
+pub(crate) fn sysfs_copy<'suite>(suite: &'suite Suite, name: &str) -> Root<'suite> {
+    let root = suite.scenario(name);
+    copy_tree(&testdata(&format!("sysfs/{name}")), Path::new(""), &root);
+    root
 }
 
-fn copy_tree(from: &Path, to: &Path) {
-    fs::create_dir_all(to).unwrap_or_else(|error| panic!("create {}: {error}", to.display()));
+/// Copy every file below `from`/`relative` to the same place in `root`.
+fn copy_tree(from: &Path, relative: &Path, root: &Root<'_>) {
+    let dir = from.join(relative);
     let entries =
-        fs::read_dir(from).unwrap_or_else(|error| panic!("list {}: {error}", from.display()));
+        fs::read_dir(&dir).unwrap_or_else(|error| panic!("list {}: {error}", dir.display()));
     for entry in entries {
-        let entry = entry.unwrap_or_else(|error| panic!("list {}: {error}", from.display()));
-        let target = to.join(entry.file_name());
+        let entry = entry.unwrap_or_else(|error| panic!("list {}: {error}", dir.display()));
+        let target = relative.join(entry.file_name());
         if entry.path().is_dir() {
-            copy_tree(&entry.path(), &target);
+            copy_tree(from, &target, root);
         } else {
-            fs::copy(entry.path(), &target)
-                .unwrap_or_else(|error| panic!("copy {}: {error}", entry.path().display()));
+            let body = fs::read(entry.path())
+                .unwrap_or_else(|error| panic!("read {}: {error}", entry.path().display()));
+            root.file(&target, body);
         }
     }
 }

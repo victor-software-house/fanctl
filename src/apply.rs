@@ -8,7 +8,9 @@ use thiserror::Error;
 
 use crate::board::{Board, Channel, Header};
 use crate::config::Config;
-use crate::curve::{Curve, Fall, POINTS, RangeError, Registers, Sequence, write_order};
+use crate::curve::{
+    Curve, Fall, POINTS, RangeError, Registers, Sequence, StoredPoint, write_order,
+};
 use crate::hwmon::{Attributes, ReadError, attribute, format_value, read_registers};
 
 /// One fan and its curve.
@@ -92,24 +94,18 @@ pub struct Mismatch {
     pub channel: Channel,
     /// The point, from 1.
     pub point: usize,
-    /// Degrees C and 0-255 written.
-    pub wrote: (u8, u8),
-    /// Degrees C and 0-255 read back.
-    pub read: (u8, u8),
+    /// The values written.
+    pub wrote: StoredPoint,
+    /// The values read back.
+    pub read: StoredPoint,
 }
 
 impl fmt::Display for Mismatch {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{} ({}) point {}: wrote {} C, duty {}; reads {} C, duty {}",
-            self.header,
-            self.channel,
-            self.point,
-            self.wrote.0,
-            self.wrote.1,
-            self.read.0,
-            self.read.1
+            "{} ({}) point {}: wrote {}; reads {}",
+            self.header, self.channel, self.point, self.wrote, self.read
         )
     }
 }
@@ -160,7 +156,8 @@ pub fn apply(device: &dyn Attributes, config: &Config) -> Result<Vec<Fan>, Apply
         }
         current.push(registers);
     }
-    for (fan, current) in fans.iter().zip(&current) {
+    let writes = fans.iter().zip(&current);
+    for (fan, current) in writes {
         write_curve(device, fan, current)?;
     }
     let mut mismatches = vec![];
@@ -179,7 +176,8 @@ fn write_curve(device: &dyn Attributes, fan: &Fan, current: &Registers) -> Resul
     let target = fan.curve.registers();
     for sequence in Sequence::ALL {
         let values = target.sequence(sequence);
-        for point in write_order(current.sequence(sequence), values) {
+        let order = write_order(current.sequence(sequence), values);
+        for point in order {
             let Some(&value) = values.get(point) else {
                 continue;
             };
@@ -202,8 +200,7 @@ fn write_curve(device: &dyn Attributes, fan: &Fan, current: &Registers) -> Resul
 fn compare(fan: &Fan, wrote: &Registers, read: &Registers) -> Vec<Mismatch> {
     (0..POINTS)
         .filter_map(|point| {
-            let wrote = (*wrote.temp.get(point)?, *wrote.pwm.get(point)?);
-            let read = (*read.temp.get(point)?, *read.pwm.get(point)?);
+            let (wrote, read) = (wrote.point(point)?, read.point(point)?);
             (wrote != read).then_some(Mismatch {
                 header: fan.header,
                 channel: fan.channel,

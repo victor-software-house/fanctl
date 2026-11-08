@@ -268,6 +268,7 @@ dependencies = [
  "serde",
  "serde-saphyr",
  "serde_json",
+ "tempfile",
  "unicode-bidi",
  "unicode-general-category",
  "unicode-width",
@@ -346,7 +347,6 @@ dependencies = [
  "minijinja",
  "serde",
  "serde_json",
- "tempfile",
  "thiserror",
 ]
 

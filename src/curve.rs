@@ -155,22 +155,25 @@ impl Curve {
     /// duties fall from one point to the next. Equal neighbours are allowed.
     #[must_use]
     pub fn fall(&self) -> Option<Fall> {
-        self.0.windows(2).zip(1..).find_map(|(pair, index)| {
-            let (before, after) = (pair.first()?, pair.get(1)?);
+        let neighbours = self.0.windows(2).zip(2..);
+        for (pair, point) in neighbours {
+            let [before, after] = pair else {
+                continue;
+            };
             if after.temp < before.temp {
-                Some(Fall {
-                    point: index + 1,
+                return Some(Fall {
+                    point,
                     sequence: Sequence::Temp,
-                })
-            } else if after.duty < before.duty {
-                Some(Fall {
-                    point: index + 1,
-                    sequence: Sequence::Pwm,
-                })
-            } else {
-                None
+                });
             }
-        })
+            if after.duty < before.duty {
+                return Some(Fall {
+                    point,
+                    sequence: Sequence::Pwm,
+                });
+            }
+        }
+        None
     }
 
     /// The values the driver stores for this curve.
@@ -250,6 +253,16 @@ impl Registers {
         }
     }
 
+    /// One point's stored values, with `index` from 0, or `None` past the
+    /// last point.
+    #[must_use]
+    pub fn point(&self, index: usize) -> Option<StoredPoint> {
+        Some(StoredPoint {
+            temp: *self.temp.get(index)?,
+            pwm: *self.pwm.get(index)?,
+        })
+    }
+
     /// Where the stored curve falls, as [`Curve::fall`].
     #[must_use]
     pub fn fall(&self) -> Option<Fall> {
@@ -269,13 +282,30 @@ impl Registers {
             temp: Temp(0),
             duty: Duty(0),
         }; POINTS];
-        for ((point, &temp), &pwm) in points.iter_mut().zip(&self.temp).zip(&self.pwm) {
+        let stored = self.temp.into_iter().zip(self.pwm);
+        let slots = points.iter_mut().zip(stored);
+        for (point, (temp, pwm)) in slots {
             *point = Point {
                 temp: Temp::try_from(temp)?,
                 duty: Duty::from_pwm(pwm),
             };
         }
         Ok(Curve(points))
+    }
+}
+
+/// One point as the driver stores it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub struct StoredPoint {
+    /// Degrees C.
+    pub temp: u8,
+    /// Duty, 0-255.
+    pub pwm: u8,
+}
+
+impl fmt::Display for StoredPoint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} C, duty {}", self.temp, self.pwm)
     }
 }
 
@@ -310,8 +340,10 @@ pub fn write_order(current: [u8; POINTS], target: [u8; POINTS]) -> [usize; POINT
         .rev()
         .filter(|&index| target.get(index) > current.get(index));
     let rest = (0..POINTS).filter(|&index| target.get(index) <= current.get(index));
+    let indices = rising.chain(rest);
     let mut order = [0; POINTS];
-    for (slot, index) in order.iter_mut().zip(rising.chain(rest)) {
+    let slots = order.iter_mut().zip(indices);
+    for (slot, index) in slots {
         *slot = index;
     }
     order
