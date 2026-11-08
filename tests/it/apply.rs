@@ -53,6 +53,11 @@ fn the_workstation_config_applies_through_the_driver() {
             "pwm1_auto_point7_temp",
         ]
     );
+    assert_eq!(
+        writes.first().map(|write| write.value.as_str()),
+        Some("72000"),
+        "a temperature is written in millidegrees"
+    );
     assert_eq!(driver.get("pwm1_auto_point2_pwm").as_deref(), Some("126"));
     assert_eq!(driver.get("pwm3_auto_point3_pwm").as_deref(), Some("186"));
     assert_eq!(
