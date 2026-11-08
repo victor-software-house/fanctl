@@ -15,12 +15,16 @@ fn run(args: &[&str], sysfs: &std::path::Path) -> Output {
         .unwrap_or_else(|error| panic!("start fanctl: {error}"))
 }
 
+/// Standard output and error, with each run of whitespace as one space,
+/// because the human renderer wraps a long error across lines.
 fn text(output: &Output) -> String {
-    format!(
+    let joined = format!(
         "{}{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
-    )
+    );
+    let words: Vec<&str> = joined.split_whitespace().collect();
+    words.join(" ")
 }
 
 #[test]
