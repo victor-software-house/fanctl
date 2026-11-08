@@ -54,6 +54,8 @@ pub enum Command {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use clap::CommandFactory;
 
     use super::*;
@@ -70,7 +72,7 @@ mod tests {
         let cli = Cli::try_parse_from(["fanctl", "apply", "fans.yaml"]).unwrap();
         assert_eq!(cli.sysfs, PathBuf::from("/sys"));
         assert!(
-            matches!(cli.command, Command::Apply { config } if config == PathBuf::from("fans.yaml"))
+            matches!(cli.command, Command::Apply { config } if config == Path::new("fans.yaml"))
         );
     }
 }

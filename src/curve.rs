@@ -243,10 +243,10 @@ pub struct Registers {
 impl Registers {
     /// One sequence's 7 values.
     #[must_use]
-    pub const fn sequence(&self, sequence: Sequence) -> &[u8; POINTS] {
+    pub const fn sequence(&self, sequence: Sequence) -> [u8; POINTS] {
         match sequence {
-            Sequence::Temp => &self.temp,
-            Sequence::Pwm => &self.pwm,
+            Sequence::Temp => self.temp,
+            Sequence::Pwm => self.pwm,
         }
     }
 
@@ -280,7 +280,7 @@ impl Registers {
 }
 
 /// The first point, from 1, whose value is lower than the one before it.
-fn falls_at(values: &[u8; POINTS]) -> Option<usize> {
+fn falls_at(values: [u8; POINTS]) -> Option<usize> {
     values
         .windows(2)
         .zip(2..)
@@ -305,7 +305,7 @@ fn falls_at(values: &[u8; POINTS]) -> Option<usize> {
 /// driver restores after resume only the curves written since it loaded, so
 /// fanctl writes each point even when it holds the value.
 #[must_use]
-pub fn write_order(current: &[u8; POINTS], target: &[u8; POINTS]) -> [usize; POINTS] {
+pub fn write_order(current: [u8; POINTS], target: [u8; POINTS]) -> [usize; POINTS] {
     let rising = (0..POINTS)
         .rev()
         .filter(|&index| target.get(index) > current.get(index));
@@ -350,7 +350,7 @@ mod tests {
         assert_eq!(sequences.len(), 330);
         for current in &sequences {
             for target in &sequences {
-                let order = write_order(current, target);
+                let order = write_order(*current, *target);
                 let mut sorted = order;
                 sorted.sort_unstable();
                 assert_eq!(sorted, [0, 1, 2, 3, 4, 5, 6], "{current:?} -> {target:?}");
@@ -358,7 +358,7 @@ mod tests {
                 for index in order {
                     state[index] = target[index];
                     assert_eq!(
-                        falls_at(&state),
+                        falls_at(state),
                         None,
                         "{current:?} -> {target:?}: {state:?} after writing point {}",
                         index + 1
@@ -373,7 +373,7 @@ mod tests {
     fn rising_values_go_first_from_the_last_point_down() {
         let current = [20, 40, 50, 60, 70, 85, 100];
         let target = [55, 59, 63, 68, 72, 76, 80];
-        assert_eq!(write_order(&current, &target), [4, 3, 2, 1, 0, 5, 6]);
+        assert_eq!(write_order(current, target), [4, 3, 2, 1, 0, 5, 6]);
     }
 
     #[test]
